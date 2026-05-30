@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp
+  collection, onSnapshot, doc, deleteDoc, addDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useCampsitesContext } from '../context/CampsitesContext';
-import { Shield, CheckCircle, XCircle, Users, MapPin, Tent, Clock } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Users, MapPin, Tent, Clock, Camera, Upload, Link as LinkIcon, Trash2, Image } from 'lucide-react';
 
 export default function AdminPanel() {
   const { user, isAdmin, loading } = useAuth();
@@ -16,6 +17,13 @@ export default function AdminPanel() {
   const [stats, setStats] = useState({ users: 0, totalVisited: 0, totalPlanned: 0 });
   const [tab, setTab] = useState('suggestions');
   const [loadingSugg, setLoadingSugg] = useState(true);
+  // Photo management state
+  const [photoSite, setPhotoSite] = useState('');
+  const [urlInput, setUrlInput] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [photoMsg, setPhotoMsg] = useState('');
+  const fileInputRef = useRef();
 
   // Guard — redirect non-admins
   useEffect(() => {
@@ -54,6 +62,59 @@ export default function AdminPanel() {
     return unsub;
   }, [isAdmin]);
 
+  // Helper: get Firestore ref for a campsite (community sites only — static ones need a Firestore doc)
+  function getCampsiteRef(siteId) {
+    return doc(db, 'campsites', String(siteId));
+  }
+
+  async function addPhotoUrl(url) {
+    if (!url.trim() || !photoSite) return;
+    try {
+      await updateDoc(getCampsiteRef(photoSite), { photos: arrayUnion(url.trim()) });
+      setUrlInput('');
+      setPhotoMsg('Photo URL added!');
+    } catch {
+      // For static campsites not in Firestore yet, create the doc
+      await addDoc(collection(db, 'campsites'), {
+        ...campsites.find(s => String(s.id) === String(photoSite)),
+        photos: [url.trim()],
+      });
+      setUrlInput('');
+      setPhotoMsg('Photo URL added!');
+    }
+    setTimeout(() => setPhotoMsg(''), 3000);
+  }
+
+  async function removePhoto(url) {
+    if (!photoSite) return;
+    await updateDoc(getCampsiteRef(photoSite), { photos: arrayRemove(url) }).catch(console.error);
+  }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file || !photoSite) return;
+    setUploading(true);
+    setUploadProgress(0);
+    const path = `campsite-photos/${photoSite}/${Date.now()}-${file.name}`;
+    const sRef = storageRef(storage, path);
+    const task = uploadBytesResumable(sRef, file);
+    task.on('state_changed',
+      snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+      err => { console.error(err); setUploading(false); },
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        await addPhotoUrl(url);
+        setUploading(false);
+        setUploadProgress(0);
+        setPhotoMsg('Photo uploaded!');
+      }
+    );
+  }
+
+  // Get current photos for selected site (merge static + Firestore)
+  const selectedSite = campsites.find(s => String(s.id) === String(photoSite));
+  const currentPhotos = selectedSite?.photos || [];
+
   async function approveSuggestion(suggestion) {
     // Map suggestion fields to campsite schema and write to live campsites collection
     const campsite = {
@@ -86,6 +147,7 @@ export default function AdminPanel() {
 
   const tabs = [
     { key: 'suggestions', label: 'Suggestions', count: suggestions.length },
+    { key: 'photos', label: 'Photos' },
     { key: 'stats', label: 'Stats' },
     { key: 'campsites', label: 'Campsites' },
   ];
@@ -180,6 +242,120 @@ export default function AdminPanel() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Photos tab */}
+      {tab === 'photos' && (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-400">Manage photos for any campsite. Upload a file or paste a URL. Changes appear live on the map and list immediately.</p>
+
+          {/* Site selector */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Select Campsite</label>
+            <select
+              value={photoSite}
+              onChange={e => { setPhotoSite(e.target.value); setPhotoMsg(''); }}
+              className="w-full sm:w-96 bg-[#1e3320] border border-[#2d5a2e] text-gray-300 rounded-xl px-3 py-2 text-sm"
+            >
+              <option value="">— Choose a campsite —</option>
+              {campsites.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({(s.photos || []).length} photo{(s.photos || []).length !== 1 ? 's' : ''})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {photoSite && (
+            <div className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-green-200 flex items-center gap-2">
+                <Image size={15} /> {selectedSite?.name}
+              </h3>
+
+              {/* Add by URL */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block flex items-center gap-1">
+                  <LinkIcon size={11} /> Paste a photo URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addPhotoUrl(urlInput)}
+                    placeholder="https://..."
+                    className="flex-1 bg-[#1e3320] border border-[#2d5a2e] rounded-xl px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-green-600"
+                  />
+                  <button
+                    onClick={() => addPhotoUrl(urlInput)}
+                    disabled={!urlInput.trim()}
+                    className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Upload file */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block flex items-center gap-1">
+                  <Upload size={11} /> Upload from device
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1e3320] border border-[#2d5a2e] hover:border-green-600 text-gray-300 rounded-xl text-sm transition-colors disabled:opacity-50"
+                >
+                  <Upload size={14} />
+                  {uploading ? `Uploading… ${uploadProgress}%` : 'Choose image'}
+                </button>
+                {uploading && (
+                  <div className="mt-2 h-1.5 bg-[#1e3320] rounded-full overflow-hidden w-48">
+                    <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                )}
+              </div>
+
+              {photoMsg && (
+                <p className="text-xs text-green-400 flex items-center gap-1">
+                  <CheckCircle size={12} /> {photoMsg}
+                </p>
+              )}
+
+              {/* Current photos grid */}
+              {currentPhotos.length > 0 ? (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">{currentPhotos.length} photo{currentPhotos.length !== 1 ? 's' : ''}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {currentPhotos.map((url, i) => (
+                      <div key={i} className="relative group rounded-lg overflow-hidden h-28">
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removePhoto(url)}
+                          className="absolute top-1 right-1 w-6 h-6 bg-red-900/80 hover:bg-red-700 text-white rounded-full items-center justify-center hidden group-hover:flex transition-colors"
+                          title="Remove photo"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                        {i === 0 && (
+                          <span className="absolute bottom-1 left-1 text-xs bg-green-900/80 text-green-300 px-1.5 py-0.5 rounded">Cover</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 italic">No photos yet for this campsite.</p>
+              )}
             </div>
           )}
         </div>

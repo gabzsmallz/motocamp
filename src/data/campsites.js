@@ -13,7 +13,10 @@ export const campsites = [
     sources: ["Murmet4x4", "GeoPointAdventuresKe"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["crater", "wildlife", "remote"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=80",
+      "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=1200&q=80",
+    ],
   },
   {
     id: 2,
@@ -29,7 +32,10 @@ export const campsites = [
     sources: ["96Lost", "WANDERLYKE"],
     youtubeLinks: ["https://www.youtube.com/@96Lost", "https://www.youtube.com/@WANDERLYKE"],
     tags: ["national_park", "gorge", "wildlife", "accessible"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1589553416260-f586c8f1514f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=1200&q=80",
+    ],
   },
   {
     id: 3,
@@ -45,7 +51,10 @@ export const campsites = [
     sources: ["96Lost", "wondering_luminous"],
     youtubeLinks: ["https://www.youtube.com/@96Lost"],
     tags: ["highland", "forest", "comfortable"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1200&q=80",
+      "https://images.unsplash.com/photo-1537225228614-56cc3556d7ed?w=1200&q=80",
+    ],
   },
   {
     id: 4,
@@ -61,7 +70,10 @@ export const campsites = [
     sources: ["Murmet4x4", "GeoPointAdventuresKe"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["lake", "hot_springs", "flamingos", "semi-arid"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1567608285969-48e4bbe0d399?w=1200&q=80",
+      "https://images.unsplash.com/photo-1535941339077-2dd1c7963098?w=1200&q=80",
+    ],
   },
   {
     id: 5,
@@ -77,7 +89,10 @@ export const campsites = [
     sources: ["GeoPointAdventuresKe", "96Lost"],
     youtubeLinks: ["https://www.youtube.com/@GeoPointAdventuresKe"],
     tags: ["conservancy", "rhino", "savanna", "wildlife"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1611348586755-53860f29e1e2?w=1200&q=80",
+      "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1200&q=80",
+    ],
   },
   {
     id: 6,
@@ -93,7 +108,10 @@ export const campsites = [
     sources: ["wondering_luminous", "WANDERLYKE"],
     youtubeLinks: ["https://www.youtube.com/@wondering_luminous"],
     tags: ["volcanic", "forest", "kilimanjaro_view", "remote"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1631662501849-89db7e42e5b8?w=1200&q=80",
+      "https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=1200&q=80",
+    ],
   },
   {
     id: 7,
@@ -109,7 +127,10 @@ export const campsites = [
     sources: ["WANDERLYKE", "96Lost"],
     youtubeLinks: ["https://www.youtube.com/@WANDERLYKE"],
     tags: ["rainforest", "birdwatching", "primates", "lush"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200&q=80",
+      "https://images.unsplash.com/photo-1518709779341-56cf33b4f17a?w=1200&q=80",
+    ],
   },
   {
     id: 8,
@@ -125,7 +146,10 @@ export const campsites = [
     sources: ["Murmet4x4", "GeoPointAdventuresKe"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["arid", "wildlife", "river", "north_kenya"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1549366021-9f761d450615?w=1200&q=80",
+      "https://images.unsplash.com/photo-1474511320723-9a56873867b5?w=1200&q=80",
+    ],
   },
   {
     id: 9,
@@ -141,7 +165,10 @@ export const campsites = [
     sources: ["96Lost", "WANDERLYKE"],
     youtubeLinks: ["https://www.youtube.com/@96Lost"],
     tags: ["volcano", "rift_valley", "hike", "views"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80",
+      "https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1200&q=80",
+    ],
   },
   {
     id: 10,
@@ -157,7 +184,10 @@ export const campsites = [
     sources: ["Murmet4x4"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["remote", "desert", "community", "north_kenya", "advanced"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1200&q=80",
+      "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1200&q=80",
+    ],
   },
   {
     id: 11,
@@ -173,7 +203,10 @@ export const campsites = [
     sources: ["Murmet4x4", "96Lost"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["lake", "remote", "iconic_route", "north_kenya", "desert"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1489493585363-d69421e0edd3?w=1200&q=80",
+      "https://images.unsplash.com/photo-1504703395950-b89145a5425b?w=1200&q=80",
+    ],
   },
   {
     id: 12,
@@ -189,7 +222,10 @@ export const campsites = [
     sources: ["GeoPointAdventuresKe", "wondering_luminous"],
     youtubeLinks: ["https://www.youtube.com/@GeoPointAdventuresKe"],
     tags: ["savanna", "migration", "wildlife", "accessible"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1547970810-dc1eac37d174?w=1200&q=80",
+      "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=80",
+    ],
   },
   {
     id: 13,
@@ -205,7 +241,10 @@ export const campsites = [
     sources: ["wondering_luminous", "WANDERLYKE"],
     youtubeLinks: ["https://www.youtube.com/@wondering_luminous"],
     tags: ["waterfall", "highland", "forest", "wildlife"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=1200&q=80",
+      "https://images.unsplash.com/photo-1467890947394-8171244e5410?w=1200&q=80",
+    ],
   },
   {
     id: 14,
@@ -221,7 +260,10 @@ export const campsites = [
     sources: ["96Lost", "WANDERLYKE"],
     youtubeLinks: ["https://www.youtube.com/@96Lost"],
     tags: ["beach", "coast", "ocean", "snorkeling", "accessible"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80",
+      "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=1200&q=80",
+    ],
   },
   {
     id: 15,
@@ -237,7 +279,10 @@ export const campsites = [
     sources: ["Murmet4x4", "GeoPointAdventuresKe"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["arid", "wildlife", "river", "remote", "tsavo"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1504173010664-32509107de9f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=1200&q=80",
+    ],
   },
   {
     id: 16,
@@ -253,7 +298,10 @@ export const campsites = [
     sources: ["96Lost", "GeoPointAdventuresKe"],
     youtubeLinks: ["https://www.youtube.com/@GeoPointAdventuresKe"],
     tags: ["mountain", "hiking", "highland", "iconic"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?w=1200&q=80",
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80",
+    ],
   },
   {
     id: 17,
@@ -269,7 +317,10 @@ export const campsites = [
     sources: ["WANDERLYKE", "Murmet4x4"],
     youtubeLinks: ["https://www.youtube.com/@WANDERLYKE"],
     tags: ["rift_valley", "viewpoint", "twisty_roads", "highland"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80",
+      "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1200&q=80",
+    ],
   },
   {
     id: 18,
@@ -285,7 +336,10 @@ export const campsites = [
     sources: ["wondering_luminous"],
     youtubeLinks: ["https://www.youtube.com/@wondering_luminous"],
     tags: ["forest", "coast", "birdwatching", "rare_species"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200&q=80",
+      "https://images.unsplash.com/photo-1511884642898-4c92249e20b6?w=1200&q=80",
+    ],
   },
   {
     id: 19,
@@ -301,7 +355,10 @@ export const campsites = [
     sources: ["Murmet4x4"],
     youtubeLinks: ["https://www.youtube.com/@Murmet4x4"],
     tags: ["remote", "arid", "wildlife", "undiscovered", "north_kenya"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1200&q=80",
+      "https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=1200&q=80",
+    ],
   },
   {
     id: 20,
@@ -317,7 +374,10 @@ export const campsites = [
     sources: ["96Lost", "wondering_luminous"],
     youtubeLinks: ["https://www.youtube.com/@96Lost"],
     tags: ["waterfall", "beginner_friendly", "nairobi_day_trip", "river"],
-    image: null,
+    photos: [
+      "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=1200&q=80",
+      "https://images.unsplash.com/photo-1508193638397-1c4234db14d8?w=1200&q=80",
+    ],
   },
 ];
 

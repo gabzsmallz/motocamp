@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDebounceCallback } from '../hooks/useDebounce';
 import StarRating from '../components/StarRating';
 import CommunityRating from '../components/CommunityRating';
+import PhotoGallery from '../components/PhotoGallery';
 
 const sourceLinks = {
   '96Lost': 'https://www.youtube.com/@96Lost',
@@ -69,6 +70,9 @@ export default function SiteDetail() {
       </Link>
 
       <div className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-2xl overflow-hidden">
+        {/* Photo gallery hero */}
+        <PhotoGallery photos={site.photos || []} name={site.name} />
+
         {/* Header */}
         <div className="p-6 border-b border-[#2d5a2e]/40">
           <div className="flex items-start justify-between gap-4">
