@@ -1,9 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation, Check } from 'lucide-react';
 import { campsites, accessLabels, facilityIcons } from '../data/campsites';
 import { useStore } from '../store/useStore';
 import { useRatings } from '../context/RatingsContext';
 import { useAuth } from '../context/AuthContext';
+import { useDebounceCallback } from '../hooks/useDebounce';
 import StarRating from '../components/StarRating';
 import CommunityRating from '../components/CommunityRating';
 
@@ -23,13 +25,38 @@ export default function SiteDetail() {
   const { user } = useAuth();
   const community = communityRatings[String(site?.id)];
 
+  // Local note state — updates instantly in UI, saves to store debounced
+  const [localNotes, setLocalNotes] = useState('');
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  const data = getSiteData(site?.id);
+
+  // Sync local notes when site data loads or site changes
+  useEffect(() => {
+    setLocalNotes(data.notes || '');
+    setNoteSaved(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const debouncedSaveNotes = useDebounceCallback((val) => {
+    setNotes(site.id, val);
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2000);
+  }, 800);
+
+  function handleNotesChange(e) {
+    const val = e.target.value;
+    setLocalNotes(val);
+    setNoteSaved(false);
+    debouncedSaveNotes(val);
+  }
+
   if (!site) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center text-gray-500">
       Campsite not found. <Link to="/list" className="text-green-400 underline">Back to list</Link>
     </div>
   );
 
-  const data = getSiteData(site.id);
   const access = accessLabels[site.access];
 
   return (
@@ -171,17 +198,31 @@ export default function SiteDetail() {
 
           {/* Personal rating & notes */}
           <div className="border-t border-[#2d5a2e]/40 pt-6">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              My Rating & Notes
-              {!user && <span className="ml-2 text-gray-600 normal-case font-normal">(sign in to sync across devices)</span>}
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                My Rating & Notes
+                {!user && <span className="ml-2 text-gray-600 normal-case font-normal">(sign in to sync across devices)</span>}
+              </h2>
+              {/* Auto-save indicator */}
+              {noteSaved && (
+                <span className="flex items-center gap-1 text-xs text-green-500 animate-pulse">
+                  <Check size={12} /> Saved
+                </span>
+              )}
+              {!noteSaved && localNotes !== (data.notes || '') && (
+                <span className="text-xs text-gray-600">Saving…</span>
+              )}
+            </div>
             <StarRating value={data.rating} onChange={r => setRating(site.id, r)} size={22} />
+            <p className="text-xs text-gray-600 mt-1 mb-2">
+              ★ Rating saves instantly · Notes save automatically as you type
+            </p>
             <textarea
-              value={data.notes}
-              onChange={e => setNotes(site.id, e.target.value)}
+              value={localNotes}
+              onChange={handleNotesChange}
               placeholder="Add your personal notes, tips, or memories about this campsite..."
               rows={4}
-              className="mt-3 w-full bg-[#1e3320] border border-[#2d5a2e] rounded-xl px-4 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-600 resize-none"
+              className="w-full bg-[#1e3320] border border-[#2d5a2e] rounded-xl px-4 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-600 resize-none transition-colors"
             />
           </div>
         </div>
