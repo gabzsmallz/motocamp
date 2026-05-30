@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation, Check, Share2, Copy } from 'lucide-react';
 import { accessLabels, facilityIcons } from '../data/campsites';
 import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
@@ -29,6 +29,9 @@ export default function SiteDetail() {
   const { user } = useAuth();
   const community = communityRatings[String(site?.id)];
 
+  // Share state
+  const [shareCopied, setShareCopied] = useState(false);
+
   // Local note state — updates instantly in UI, saves to store debounced
   const [localNotes, setLocalNotes] = useState('');
   const [noteSaved, setNoteSaved] = useState(false);
@@ -53,6 +56,38 @@ export default function SiteDetail() {
     setLocalNotes(val);
     setNoteSaved(false);
     debouncedSaveNotes(val);
+  }
+
+  async function handleShare() {
+    const url = window.location.href;
+    const shareData = {
+      title: site?.name,
+      text: `Check out ${site?.name} — a great motocamping site in Kenya! 🏕️🏍️`,
+      url,
+    };
+    // Use native share sheet if available (Android, iOS, some desktops)
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled or API unavailable — fall through to clipboard
+      }
+    }
+    // Fallback: copy URL to clipboard
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Last resort for older browsers
+      const el = document.createElement('textarea');
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2500);
   }
 
   if (!site) return (
@@ -123,6 +158,22 @@ export default function SiteDetail() {
               <Navigation size={16} />
               Navigate
             </a>
+
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm border transition-all ${
+                shareCopied
+                  ? 'bg-green-900/50 border-green-600 text-green-300'
+                  : 'bg-[#1e3320] text-gray-300 border-[#2d5a2e] hover:border-green-600 hover:text-green-300'
+              }`}
+              title="Share this campsite"
+            >
+              {shareCopied ? (
+                <><Check size={16} /> Copied!</>
+              ) : (
+                <><Share2 size={16} /> Share</>
+              )}
+            </button>
           </div>
         </div>
 

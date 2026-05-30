@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Bookmark, MapPin, Camera } from 'lucide-react';
+import { CheckCircle, Bookmark, MapPin, Camera, Share2, Check } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useRatings } from '../context/RatingsContext';
 import { accessLabels, facilityIcons } from '../data/campsites';
@@ -14,7 +14,22 @@ export default function SiteCard({ site }) {
   const access = accessLabels[site.access];
   const community = communityRatings[String(site.id)];
   const [imgErr, setImgErr] = useState(false);
+  const [shared, setShared] = useState(false);
   const thumb = !imgErr && site.photos?.[0];
+
+  async function handleShare(e) {
+    e.preventDefault();
+    const url = `${window.location.origin}/site/${site.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: site.name, text: `${site.name} — motocamping in Kenya 🏕️🏍️`, url });
+        return;
+      } catch {}
+    }
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
+  }
 
   return (
     <div className={`bg-[#141f14] border rounded-xl overflow-hidden transition-all hover:border-green-600/60 ${
@@ -92,7 +107,16 @@ export default function SiteCard({ site }) {
             <StarRating value={data.rating} onChange={r => setRating(site.id, r)} size={15} />
             <CommunityRating communityData={community} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
+            <button
+              onClick={handleShare}
+              className={`p-1.5 rounded-lg transition-colors ${
+                shared ? 'text-green-400 bg-green-900/30' : 'text-gray-500 hover:text-green-400 hover:bg-green-900/20'
+              }`}
+              title="Share"
+            >
+              {shared ? <Check size={15} /> : <Share2 size={15} />}
+            </button>
             <button
               onClick={() => togglePlanned(site.id)}
               className={`p-1.5 rounded-lg transition-colors ${
