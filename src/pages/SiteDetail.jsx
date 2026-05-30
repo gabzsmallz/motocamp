@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation, Check } from 'lucide-react';
-import { campsites, accessLabels, facilityIcons } from '../data/campsites';
+import { accessLabels, facilityIcons } from '../data/campsites';
+import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
 import { useRatings } from '../context/RatingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +20,9 @@ const sourceLinks = {
 
 export default function SiteDetail() {
   const { id } = useParams();
-  const site = campsites.find(s => s.id === Number(id));
+  const { campsites } = useCampsitesContext();
+  // id can be numeric (static sites) or a Firestore string id (community sites)
+  const site = campsites.find(s => String(s.id) === String(id));
   const { getSiteData, toggleVisited, togglePlanned, setRating, setNotes } = useStore();
   const communityRatings = useRatings();
   const { user } = useAuth();

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  collection, onSnapshot, doc, deleteDoc, setDoc, updateDoc, serverTimestamp
+  collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Shield, CheckCircle, XCircle, Users, MapPin, Tent, Clock, Trash2 } from 'lucide-react';
-import { campsites } from '../data/campsites';
+import { useCampsitesContext } from '../context/CampsitesContext';
+import { Shield, CheckCircle, XCircle, Users, MapPin, Tent, Clock } from 'lucide-react';
 
 export default function AdminPanel() {
   const { user, isAdmin, loading } = useAuth();
+  const { campsites } = useCampsitesContext();
   const navigate = useNavigate();
   const [suggestions, setSuggestions] = useState([]);
   const [stats, setStats] = useState({ users: 0, totalVisited: 0, totalPlanned: 0 });
@@ -54,12 +55,26 @@ export default function AdminPanel() {
   }, [isAdmin]);
 
   async function approveSuggestion(suggestion) {
-    // Move to a 'pending_campsites' collection for manual code addition
-    await setDoc(doc(db, 'approved_suggestions', suggestion.id), {
-      ...suggestion,
+    // Map suggestion fields to campsite schema and write to live campsites collection
+    const campsite = {
+      name: suggestion.name || 'Unnamed Campsite',
+      region: suggestion.region || '',
+      county: suggestion.county || '',
+      lat: parseFloat(suggestion.lat) || 0,
+      lng: parseFloat(suggestion.lng) || 0,
+      description: suggestion.description || '',
+      access: suggestion.access || 'moderate',
+      facilities: suggestion.facilities || [],
+      fee: suggestion.fee || 'Unknown',
+      sources: suggestion.source ? [suggestion.source] : ['Community'],
+      youtubeLinks: [],
+      tags: [],
+      image: null,
       approvedAt: serverTimestamp(),
       approvedBy: user.email,
-    });
+      submittedBy: suggestion.submittedBy || 'anonymous',
+    };
+    await addDoc(collection(db, 'campsites'), campsite);
     await deleteDoc(doc(db, 'suggestions', suggestion.id));
   }
 

@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { campsites } from '../data/campsites';
+import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
 import SiteCard from '../components/SiteCard';
 
-const counties = [...new Set(campsites.map(s => s.county))].sort();
-const allTags = [...new Set(campsites.flatMap(s => s.tags))].sort();
-
 export default function ListView() {
+  const { campsites } = useCampsitesContext();
   const { getSiteData } = useStore();
   const [search, setSearch] = useState('');
   const [filterAccess, setFilterAccess] = useState('all');
@@ -16,13 +14,16 @@ export default function ListView() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('name');
 
+  // Derived from live campsites (includes community-added sites)
+  const counties = useMemo(() => [...new Set(campsites.map(s => s.county))].sort(), [campsites]);
+
   const filtered = useMemo(() => {
     let sites = campsites.filter(s => {
       const d = getSiteData(s.id);
       const matchSearch = !search ||
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.region.toLowerCase().includes(search.toLowerCase()) ||
-        s.tags.some(t => t.includes(search.toLowerCase()));
+        (s.tags || []).some(t => t.includes(search.toLowerCase()));
       const matchAccess = filterAccess === 'all' || s.access === filterAccess;
       const matchCounty = filterCounty === 'all' || s.county === filterCounty;
       const matchStatus =
@@ -39,13 +40,13 @@ export default function ListView() {
       sites = sites.sort((a, b) => (getSiteData(b.id).rating || 0) - (getSiteData(a.id).rating || 0));
     }
     return sites;
-  }, [search, filterAccess, filterStatus, filterCounty, sortBy, getSiteData]);
+  }, [campsites, search, filterAccess, filterStatus, filterCounty, sortBy, getSiteData]);
 
   const { visited, planned } = useMemo(() => {
     const visited = campsites.filter(s => getSiteData(s.id).visited).length;
     const planned = campsites.filter(s => getSiteData(s.id).planned).length;
     return { visited, planned };
-  }, [getSiteData]);
+  }, [campsites, getSiteData]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">

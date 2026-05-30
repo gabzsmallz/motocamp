@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { campsites, accessLabels } from '../data/campsites';
+import { accessLabels } from '../data/campsites';
+import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
 
 // Fix leaflet default icon issue with bundlers
@@ -44,6 +45,7 @@ function FlyTo({ target }) {
 export default function MapView() {
   const navigate = useNavigate();
   const { getSiteData } = useStore();
+  const { campsites } = useCampsitesContext();
   const [flyTarget, setFlyTarget] = useState(null);
   const [filter, setFilter] = useState('all');
 

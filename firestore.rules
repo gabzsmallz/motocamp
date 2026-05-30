@@ -18,9 +18,10 @@ service cloud.firestore {
         && request.auth.token.email == "YOUR_ADMIN_EMAIL";
     }
 
-    // Approved suggestions — admin only
-    match /approved_suggestions/{id} {
-      allow read, write: if request.auth != null
+    // Community-approved campsites — anyone can read, only admin can write
+    match /campsites/{id} {
+      allow read: if true;
+      allow write: if request.auth != null
         && request.auth.token.email == "YOUR_ADMIN_EMAIL";
     }
   }
