@@ -1,0 +1,27 @@
+rules_version = '2';
+// NOTE: Before deploying, replace YOUR_ADMIN_EMAIL below with your actual
+// admin email address. This file is not deployed automatically — run:
+//   firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Each user can read/write only their own data
+    match /users/{userId}/data/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Anyone can submit a suggestion (no login required)
+    match /suggestions/{suggestionId} {
+      allow create: if true;
+      // Only admin can read, update, delete suggestions
+      allow read, update, delete: if request.auth != null
+        && request.auth.token.email == "YOUR_ADMIN_EMAIL";
+    }
+
+    // Approved suggestions — admin only
+    match /approved_suggestions/{id} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email == "YOUR_ADMIN_EMAIL";
+    }
+  }
+}
