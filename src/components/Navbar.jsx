@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Map, List, Bookmark, PlusCircle, Shield, LogIn, LogOut, Cloud } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Map, List, Bookmark, PlusCircle, Shield, LogIn, LogOut, Cloud, WifiOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,6 +9,18 @@ export default function Navbar() {
   const { getStats, synced } = useStore();
   const { user, isAdmin, loading, signIn, signOut } = useAuth();
   const { visited, planned } = getStats();
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline  = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online',  goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online',  goOnline);
+    };
+  }, []);
 
   const links = [
     { to: '/', icon: Map, label: 'Map' },
@@ -59,8 +72,13 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Right side: sync indicator + auth */}
+        {/* Right side: offline badge + sync + auth */}
         <div className="flex items-center gap-2 shrink-0">
+          {isOffline && (
+            <span className="flex items-center gap-1 text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 px-2 py-0.5 rounded-full" title="You are offline — cached data is available">
+              <WifiOff size={11} /> Offline
+            </span>
+          )}
           <span className="text-xs text-gray-500 hidden sm:block">
             <span className="text-green-400 font-semibold">{visited}</span> visited
           </span>

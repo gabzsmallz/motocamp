@@ -4,6 +4,7 @@ import { StoreProvider } from './store/useStore';
 import { RatingsProvider } from './context/RatingsContext';
 import { CampsitesProvider } from './context/CampsitesContext';
 import Navbar from './components/Navbar';
+import InstallPrompt from './components/InstallPrompt';
 import MapView from './pages/MapView';
 import ListView from './pages/ListView';
 import SiteDetail from './pages/SiteDetail';
@@ -22,6 +23,7 @@ export default function App() {
         <BrowserRouter>
           <div className="flex flex-col min-h-screen">
             <Navbar />
+            <InstallPrompt />
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<MapView />} />
