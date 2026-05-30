@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { StoreProvider } from './store/useStore';
+import { RatingsProvider } from './context/RatingsContext';
 import Navbar from './components/Navbar';
 import MapView from './pages/MapView';
 import ListView from './pages/ListView';
@@ -15,6 +16,7 @@ export default function App() {
   return (
     <AuthProvider>
       <StoreProvider>
+        <RatingsProvider>
         <BrowserRouter>
           <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -30,6 +32,7 @@ export default function App() {
             </main>
           </div>
         </BrowserRouter>
+        </RatingsProvider>
       </StoreProvider>
     </AuthProvider>
   );

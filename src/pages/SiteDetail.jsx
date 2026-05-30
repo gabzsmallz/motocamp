@@ -2,7 +2,10 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, CheckCircle, Bookmark, ExternalLink, Navigation } from 'lucide-react';
 import { campsites, accessLabels, facilityIcons } from '../data/campsites';
 import { useStore } from '../store/useStore';
+import { useRatings } from '../context/RatingsContext';
+import { useAuth } from '../context/AuthContext';
 import StarRating from '../components/StarRating';
+import CommunityRating from '../components/CommunityRating';
 
 const sourceLinks = {
   '96Lost': 'https://www.youtube.com/@96Lost',
@@ -16,6 +19,9 @@ export default function SiteDetail() {
   const { id } = useParams();
   const site = campsites.find(s => s.id === Number(id));
   const { getSiteData, toggleVisited, togglePlanned, setRating, setNotes } = useStore();
+  const communityRatings = useRatings();
+  const { user } = useAuth();
+  const community = communityRatings[String(site?.id)];
 
   if (!site) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center text-gray-500">
@@ -154,9 +160,21 @@ export default function SiteDetail() {
             </div>
           </div>
 
-          {/* Personal notes */}
+          {/* Community rating */}
           <div className="border-t border-[#2d5a2e]/40 pt-6">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">My Rating & Notes</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Community Rating</h2>
+            <CommunityRating communityData={community} size="lg" />
+            {!user && (
+              <p className="text-xs text-gray-600 mt-2">Sign in to add your rating and have it count towards the community score.</p>
+            )}
+          </div>
+
+          {/* Personal rating & notes */}
+          <div className="border-t border-[#2d5a2e]/40 pt-6">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              My Rating & Notes
+              {!user && <span className="ml-2 text-gray-600 normal-case font-normal">(sign in to sync across devices)</span>}
+            </h2>
             <StarRating value={data.rating} onChange={r => setRating(site.id, r)} size={22} />
             <textarea
               value={data.notes}

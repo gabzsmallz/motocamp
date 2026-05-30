@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
 import { CheckCircle, Bookmark, MapPin } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useRatings } from '../context/RatingsContext';
 import { accessLabels, facilityIcons } from '../data/campsites';
 import StarRating from './StarRating';
+import CommunityRating from './CommunityRating';
 
 export default function SiteCard({ site }) {
   const { getSiteData, toggleVisited, togglePlanned, setRating } = useStore();
+  const communityRatings = useRatings();
   const data = getSiteData(site.id);
   const access = accessLabels[site.access];
+  const community = communityRatings[String(site.id)];
 
   return (
     <div className={`bg-[#141f14] border rounded-xl overflow-hidden transition-all hover:border-green-600/60 ${
@@ -58,8 +62,12 @@ export default function SiteCard({ site }) {
           <span className="text-xs text-gray-500 ml-1">{site.fee}</span>
         </div>
 
+        {/* Ratings row: personal stars + community average */}
         <div className="flex items-center justify-between">
-          <StarRating value={data.rating} onChange={r => setRating(site.id, r)} size={15} />
+          <div className="flex flex-col gap-1">
+            <StarRating value={data.rating} onChange={r => setRating(site.id, r)} size={15} />
+            <CommunityRating communityData={community} />
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => togglePlanned(site.id)}

@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext, useCallback } from 'react';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, deleteField, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -91,6 +91,18 @@ export function StoreProvider({ children }) {
       persist(next);
       return next;
     });
+    // Write to shared community ratings doc (only when logged in)
+    if (user) {
+      const ratingRef = doc(db, 'ratings', String(id));
+      if (rating === 0) {
+        // Remove user's rating when cleared
+        updateDoc(ratingRef, { [user.uid]: deleteField() }).catch(() =>
+          setDoc(ratingRef, {}, { merge: true })
+        );
+      } else {
+        setDoc(ratingRef, { [user.uid]: rating }, { merge: true }).catch(console.error);
+      }
+    }
   }
 
   function setNotes(id, notes) {
