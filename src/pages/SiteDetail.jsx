@@ -10,6 +10,7 @@ import { useDebounceCallback } from '../hooks/useDebounce';
 import StarRating from '../components/StarRating';
 import CommunityRating from '../components/CommunityRating';
 import PhotoGallery from '../components/PhotoGallery';
+import TripReports from '../components/TripReports';
 
 const sourceLinks = {
   '96Lost': 'https://www.youtube.com/@96Lost',
@@ -283,6 +284,10 @@ export default function SiteDetail() {
               className="w-full bg-[#1e3320] border border-[#2d5a2e] rounded-xl px-4 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-600 resize-none transition-colors"
             />
           </div>
+
+          {/* Community trip reports */}
+          <TripReports siteId={site.id} />
+
         </div>
       </div>
     </div>
