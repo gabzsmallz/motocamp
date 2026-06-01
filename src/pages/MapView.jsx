@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { Download } from 'lucide-react';
 import { accessLabels } from '../data/campsites';
 import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
+import { downloadGpx } from '../utils/exportGpx';
 
 // Fix leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -79,6 +81,16 @@ export default function MapView() {
             {label}
           </button>
         ))}
+
+        {/* Export visible pins as GPX */}
+        <button
+          onClick={() => downloadGpx(filtered, `motocamp-${filter}.gpx`, { name: `KenyaMotocamp — ${filter} sites` })}
+          disabled={filtered.length === 0}
+          title={`Export ${filtered.length} visible sites as GPX`}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#1e3320] text-gray-400 hover:text-green-300 border border-[#2d5a2e] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <Download size={11} /> GPX ({filtered.length})
+        </button>
 
         <div className="ml-auto flex gap-1 text-xs items-center shrink-0">
           <span className="text-gray-500">Jump to:</span>
