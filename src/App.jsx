@@ -5,13 +5,13 @@ import { RatingsProvider } from './context/RatingsContext';
 import { CampsitesProvider } from './context/CampsitesContext';
 import Navbar from './components/Navbar';
 import InstallPrompt from './components/InstallPrompt';
+import Home from './pages/Home';
 import MapView from './pages/MapView';
 import ListView from './pages/ListView';
 import SiteDetail from './pages/SiteDetail';
 import MyTrips from './pages/MyTrips';
 import Suggest from './pages/Suggest';
 import AdminPanel from './pages/AdminPanel';
-import 'leaflet/dist/leaflet.css';
 import './index.css';
 
 export default function App() {
@@ -19,24 +19,25 @@ export default function App() {
     <AuthProvider>
       <StoreProvider>
         <CampsitesProvider>
-        <RatingsProvider>
-        <BrowserRouter>
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <InstallPrompt />
-            <main className="flex-1">
-              <Routes>
-                <Route path="/" element={<MapView />} />
-                <Route path="/list" element={<ListView />} />
-                <Route path="/site/:id" element={<SiteDetail />} />
-                <Route path="/trips" element={<MyTrips />} />
-                <Route path="/suggest" element={<Suggest />} />
-                <Route path="/admin" element={<AdminPanel />} />
-              </Routes>
-            </main>
-          </div>
-        </BrowserRouter>
-        </RatingsProvider>
+          <RatingsProvider>
+            <BrowserRouter>
+              <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                <Navbar />
+                <InstallPrompt />
+                <main style={{ flex: 1 }}>
+                  <Routes>
+                    <Route path="/"        element={<Home />} />
+                    <Route path="/map"     element={<MapView />} />
+                    <Route path="/list"    element={<ListView />} />
+                    <Route path="/site/:id" element={<SiteDetail />} />
+                    <Route path="/trips"   element={<MyTrips />} />
+                    <Route path="/suggest" element={<Suggest />} />
+                    <Route path="/admin"   element={<AdminPanel />} />
+                  </Routes>
+                </main>
+              </div>
+            </BrowserRouter>
+          </RatingsProvider>
         </CampsitesProvider>
       </StoreProvider>
     </AuthProvider>

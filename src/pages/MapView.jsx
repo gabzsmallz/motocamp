@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Download } from 'lucide-react';
-import { accessLabels } from '../data/campsites';
 import { useCampsitesContext } from '../context/CampsitesContext';
 import { useStore } from '../store/useStore';
+import { accessLabels, round1 } from '../data/campsites';
 import { downloadGpx } from '../utils/exportGpx';
+import { cx, Icon, WaypointPin, SiteImg, AccessChip } from '../components/primitives';
 
-// Fix leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -16,145 +15,167 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-function makeIcon(color) {
-  return L.divIcon({
-    html: `<div style="
-      width:28px;height:28px;border-radius:50% 50% 50% 0;
-      background:${color};border:2px solid #0f1a10;
-      transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.5);
-    "></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -30],
-    className: '',
-  });
-}
+const ACCESS_HEX = { good: '#4c6a3c', moderate: '#b27a14', rough: '#a8341c' };
+const STATUS_HEX = { visited: '#4c6a3c', planned: '#b27a14' };
 
-const icons = {
-  visited: makeIcon('#22c55e'),
-  planned: makeIcon('#eab308'),
-  default: makeIcon('#16a34a'),
-};
+function markerHTML(n, color, active) {
+  return `<span class="lf-pin${active ? ' is-active' : ''}" style="--pc:${color}"><span class="lf-pin__n">${n}</span></span>`;
+}
 
 function FlyTo({ target }) {
   const map = useMap();
-  useEffect(() => {
-    if (target) map.flyTo(target, 11, { duration: 1.2 });
-  }, [target, map]);
+  useEffect(() => { if (target) map.flyTo(target, 11, { duration: 1.2 }); }, [target]);
   return null;
 }
 
 export default function MapView() {
   const navigate = useNavigate();
-  const { getSiteData } = useStore();
   const { campsites } = useCampsitesContext();
+  const { getSiteData } = useStore();
+  const [filter, setFilter]   = useState('all');
+  const [search, setSearch]   = useState('');
+  const [hoverId, setHoverId] = useState(null);
+  const [colorBy, setColorBy] = useState('access');
   const [flyTarget, setFlyTarget] = useState(null);
-  const [filter, setFilter] = useState('all');
+  const mapRef  = useRef(null);
+  const mapEl   = useRef(null);
+  const markers = useRef({});
 
-  const filtered = campsites.filter(s => {
+  const filtered = useMemo(() => campsites.filter(s => {
     const d = getSiteData(s.id);
-    if (filter === 'visited') return d.visited;
-    if (filter === 'planned') return d.planned;
-    if (filter === 'unvisited') return !d.visited;
-    return true;
-  });
+    const mS = !search || (s.name + s.region + s.county + (s.tags || []).join(' ')).toLowerCase().includes(search.toLowerCase());
+    const mF = filter === 'all' ? true : filter === 'visited' ? d.visited : filter === 'planned' ? d.planned : filter === 'unvisited' ? !d.visited && !d.planned : true;
+    return mS && mF;
+  }), [campsites, search, filter, getSiteData]);
+
+  // init Leaflet map
+  useEffect(() => {
+    if (mapRef.current || !mapEl.current) return;
+    const map = L.map(mapEl.current, { center: [0.6, 37.6], zoom: 6, zoomControl: false, attributionControl: false });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 17 }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.attribution({ position: 'bottomleft', prefix: false }).addAttribution('Tiles © Esri').addTo(map);
+    mapRef.current = map;
+    setTimeout(() => map.invalidateSize(), 200);
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  // rebuild markers
+  useEffect(() => {
+    const map = mapRef.current; if (!map) return;
+    Object.values(markers.current).forEach(m => m.remove());
+    markers.current = {};
+    filtered.forEach(s => {
+      const d = getSiteData(s.id);
+      const color = colorBy === 'status'
+        ? (d.visited ? STATUS_HEX.visited : d.planned ? STATUS_HEX.planned : '#9a8e76')
+        : ACCESS_HEX[s.access];
+      const icon = L.divIcon({ html: markerHTML(s.id, color, false), className: 'lf-divicon', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28] });
+      const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+      const acc = accessLabels[s.access];
+      m.bindPopup(
+        `<div class="lf-pop">
+           <div class="lf-pop__name">${s.name}</div>
+           <div class="lf-pop__loc">${s.region}, ${s.county}</div>
+           <div class="lf-pop__row">
+             <span class="lf-pop__chip" style="--c:${ACCESS_HEX[s.access]}">${acc.label}</span>
+             <span class="lf-pop__score">★ ${round1(s.community.overall).toFixed(1)}</span>
+           </div>
+           <div class="lf-pop__meta">${s.fee} · ${s.distanceFromNairobi} km from Nairobi</div>
+           <button class="lf-pop__btn" data-go="${s.id}">View field report →</button>
+         </div>`,
+        { className: 'lf-pop-wrap', maxWidth: 240 }
+      );
+      m.on('mouseover', () => setHoverId(s.id));
+      m.on('mouseout',  () => setHoverId(null));
+      m.on('popupopen', e => {
+        const btn = e.popup.getElement()?.querySelector('[data-go]');
+        if (btn) btn.onclick = () => navigate(`/site/${s.id}`);
+      });
+      markers.current[s.id] = m;
+    });
+  }, [filtered, colorBy, getSiteData]);
+
+  // hover highlight
+  useEffect(() => {
+    Object.entries(markers.current).forEach(([id, m]) => {
+      const el = m.getElement()?.querySelector('.lf-pin');
+      if (el) el.classList.toggle('is-active', String(id) === String(hoverId));
+      m.setZIndexOffset(String(id) === String(hoverId) ? 1000 : 0);
+    });
+  }, [hoverId]);
+
+  function flyTo(s) { mapRef.current?.flyTo([s.lat, s.lng], 11, { duration: 1.1 }); }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
-      {/* Filter bar */}
-      <div className="flex gap-2 px-4 py-2 bg-[#0a1409] border-b border-[#2d5a2e] overflow-x-auto">
-        {[
-          { key: 'all', label: `All (${campsites.length})` },
-          { key: 'visited', label: '✓ Visited' },
-          { key: 'planned', label: '📌 Planned' },
-          { key: 'unvisited', label: '🗺️ Not yet' },
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              filter === key
-                ? 'bg-green-700 text-white'
-                : 'bg-[#1e3320] text-gray-400 hover:text-green-300 border border-[#2d5a2e]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-
-        {/* Export visible pins as GPX */}
-        <button
-          onClick={() => downloadGpx(filtered, `motocamp-${filter}.gpx`, { name: `KenyaMotocamp — ${filter} sites` })}
-          disabled={filtered.length === 0}
-          title={`Export ${filtered.length} visible sites as GPX`}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#1e3320] text-gray-400 hover:text-green-300 border border-[#2d5a2e] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        >
-          <Download size={11} /> GPX ({filtered.length})
-        </button>
-
-        <div className="ml-auto flex gap-1 text-xs items-center shrink-0">
-          <span className="text-gray-500">Jump to:</span>
-          <select
-            onChange={e => {
-              const site = campsites.find(s => s.id === Number(e.target.value));
-              if (site) setFlyTarget([site.lat, site.lng]);
-              e.target.value = '';
-            }}
-            defaultValue=""
-            className="bg-[#1e3320] border border-[#2d5a2e] text-gray-300 rounded px-2 py-1 text-xs"
-          >
-            <option value="" disabled>Select site...</option>
-            {campsites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+    <div className="explore">
+      {/* LEFT PANEL */}
+      <aside className="explore__panel">
+        <div className="explore__panel-head">
+          <div className="row gap-2" style={{ justifyContent: 'space-between' }}>
+            <span className="eyebrow">Sheet 1 · {filtered.length} of {campsites.length} sites</span>
+            <button className="explore__gpx" disabled={!filtered.length}
+              onClick={() => downloadGpx(filtered, `motocamp-${filter}.gpx`)}>
+              <Icon name="download" size={13} /> GPX
+            </button>
+          </div>
+          <div className="explore__search">
+            <Icon name="search" size={16} className="explore__search-icn" />
+            <input className="explore__search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter sites…" />
+            {search && <button className="explore__search-x" onClick={() => setSearch('')}><Icon name="x" size={14} /></button>}
+          </div>
+          <div className="explore__filters scry">
+            {[['all','All'],['planned','Planned'],['visited','Visited'],['unvisited','Not yet']].map(([k,l]) => (
+              <button key={k} className={cx('chip', filter === k && 'is-on')} onClick={() => setFilter(k)}>{l}</button>
+            ))}
+            <span className="explore__sep" />
+            <button className={cx('chip', colorBy === 'access' && 'is-on')} onClick={() => setColorBy('access')}>By access</button>
+            <button className={cx('chip', colorBy === 'status' && 'is-on')} onClick={() => setColorBy('status')}>By status</button>
+          </div>
         </div>
-      </div>
 
-      <MapContainer
-        center={[0.5, 37.5]}
-        zoom={6}
-        style={{ flex: 1 }}
-        className="campsite-popup"
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='© <a href="https://openstreetmap.org">OpenStreetMap</a>'
-        />
-        <FlyTo target={flyTarget} />
-
-        {filtered.map(site => {
-          const d = getSiteData(site.id);
-          const icon = d.visited ? icons.visited : d.planned ? icons.planned : icons.default;
-          const access = accessLabels[site.access];
-
-          return (
-            <Marker key={site.id} position={[site.lat, site.lng]} icon={icon}>
-              <Popup className="campsite-popup">
-                <div>
-                  <div className="font-semibold text-green-200 text-sm mb-1">{site.name}</div>
-                  <div className="text-xs text-gray-400 mb-1">{site.region}, {site.county}</div>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${access.bg} ${access.color}`}>
-                    {access.label}
-                  </span>
-                  <p className="text-xs text-gray-300 mt-2 leading-relaxed line-clamp-3">{site.description}</p>
-                  <div className="mt-2 text-xs text-gray-500">{site.fee}</div>
-                  <button
-                    onClick={() => navigate(`/site/${site.id}`)}
-                    className="mt-2 w-full text-xs bg-green-800 hover:bg-green-700 text-green-100 py-1.5 rounded-lg transition-colors"
-                  >
-                    View Details →
-                  </button>
+        <div className="explore__list scry">
+          {filtered.map(s => {
+            const d = getSiteData(s.id);
+            const tone = colorBy === 'status' ? (d.visited ? 'terrain' : d.planned ? 'amber' : 'signal') : accessLabels[s.access].token;
+            return (
+              <div key={s.id}
+                className={cx('ex-item', String(s.id) === String(hoverId) && 'is-hover')}
+                onMouseEnter={() => setHoverId(s.id)}
+                onMouseLeave={() => setHoverId(null)}
+                onClick={() => flyTo(s)}>
+                <div className="ex-item__pin"><WaypointPin n={s.id} tone={tone} size={26} active={String(s.id) === String(hoverId)} /></div>
+                <SiteImg src={s.photos?.[0]} alt={s.name} className="ex-item__img" />
+                <div className="ex-item__body">
+                  <div className="ex-item__name">{s.name}</div>
+                  <div className="ex-item__loc">{s.region}, {s.county}</div>
+                  <div className="ex-item__meta">
+                    <AccessChip access={s.access} />
+                    <span className="ex-item__score">★ {round1(s.community.overall).toFixed(1)}</span>
+                  </div>
+                  <div className="coord ex-item__coord">{s.distanceFromNairobi} km · {s.fee}</div>
                 </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+                <button className="ex-item__open" onClick={e => { e.stopPropagation(); navigate(`/site/${s.id}`); }}>
+                  <Icon name="chevronRight" size={16} />
+                </button>
+              </div>
+            );
+          })}
+          {!filtered.length && <div className="ex-empty">No sites match.<br />Try clearing filters.</div>}
+        </div>
+      </aside>
 
-      {/* Legend */}
-      <div className="absolute bottom-6 left-4 z-[999] bg-[#0a1409]/90 border border-[#2d5a2e] rounded-xl p-3 text-xs space-y-1">
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span> Visited</div>
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span> Planned</div>
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-700 inline-block"></span> Not yet</div>
+      {/* MAP */}
+      <div className="explore__map-wrap">
+        <div ref={mapEl} className="explore__map" />
+        <div className="explore__legend">
+          <div className="explore__legend-title font-mono">LEGEND · {colorBy === 'access' ? 'ROAD ACCESS' : 'MY STATUS'}</div>
+          {colorBy === 'access'
+            ? [['good','Good road'],['moderate','Moderate'],['rough','Rough / ADV']].map(([k,l]) => (
+                <div key={k} className="explore__legend-row"><span className="explore__legend-dot" style={{ background: ACCESS_HEX[k] }} />{l}</div>))
+            : [['visited','Visited'],['planned','Planned'],['none','Not yet']].map(([k,l]) => (
+                <div key={k} className="explore__legend-row"><span className="explore__legend-dot" style={{ background: STATUS_HEX[k] || '#9a8e76' }} />{l}</div>))}
+        </div>
       </div>
     </div>
   );

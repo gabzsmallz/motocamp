@@ -1,428 +1,334 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  collection, onSnapshot, doc, deleteDoc, addDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp
-} from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, addDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useCampsitesContext } from '../context/CampsitesContext';
-import { Shield, CheckCircle, XCircle, Users, MapPin, Tent, Clock, Camera, Upload, Link as LinkIcon, Trash2, Image } from 'lucide-react';
+import { cx, Icon, TickCorners, AccessChip, WaypointPin } from '../components/primitives';
 
 export default function AdminPanel() {
   const { user, isAdmin, loading } = useAuth();
   const { campsites } = useCampsitesContext();
   const navigate = useNavigate();
   const [suggestions, setSuggestions] = useState([]);
-  const [stats, setStats] = useState({ users: 0, totalVisited: 0, totalPlanned: 0 });
-  const [tab, setTab] = useState('suggestions');
+  const [tab, setTab] = useState('queue');
   const [loadingSugg, setLoadingSugg] = useState(true);
-  // Photo management state
-  const [photoSite, setPhotoSite] = useState('');
-  const [urlInput, setUrlInput] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [photoMsg, setPhotoMsg] = useState('');
-  const fileInputRef = useRef();
 
-  // Guard — redirect non-admins
-  useEffect(() => {
-    if (!loading && (!user || !isAdmin)) {
-      navigate('/');
-    }
-  }, [user, isAdmin, loading, navigate]);
+  useEffect(() => { if (!loading && (!user || !isAdmin)) navigate('/'); }, [user, isAdmin, loading]);
 
-  // Load suggestions from Firestore
   useEffect(() => {
     if (!isAdmin) return;
-    const ref = collection(db, 'suggestions');
-    const unsub = onSnapshot(ref, (snap) => {
+    const unsub = onSnapshot(collection(db, 'suggestions'), snap => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       items.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
-      setSuggestions(items);
-      setLoadingSugg(false);
+      setSuggestions(items); setLoadingSugg(false);
     });
     return unsub;
   }, [isAdmin]);
-
-  // Load aggregate user stats
-  useEffect(() => {
-    if (!isAdmin) return;
-    const ref = collection(db, 'users');
-    const unsub = onSnapshot(ref, (snap) => {
-      let totalVisited = 0, totalPlanned = 0;
-      snap.docs.forEach(d => {
-        const data = d.data();
-        // data structure: { uid: { sites: {...} } } or subcollection
-        // We stored under users/{uid}/data/sites — count via subcollection is async,
-        // so just count users for now
-      });
-      setStats(s => ({ ...s, users: snap.docs.length }));
-    });
-    return unsub;
-  }, [isAdmin]);
-
-  // Helper: get Firestore ref for a campsite (community sites only — static ones need a Firestore doc)
-  function getCampsiteRef(siteId) {
-    return doc(db, 'campsites', String(siteId));
-  }
-
-  async function addPhotoUrl(url) {
-    if (!url.trim() || !photoSite) return;
-    try {
-      await updateDoc(getCampsiteRef(photoSite), { photos: arrayUnion(url.trim()) });
-      setUrlInput('');
-      setPhotoMsg('Photo URL added!');
-    } catch {
-      // For static campsites not in Firestore yet, create the doc
-      await addDoc(collection(db, 'campsites'), {
-        ...campsites.find(s => String(s.id) === String(photoSite)),
-        photos: [url.trim()],
-      });
-      setUrlInput('');
-      setPhotoMsg('Photo URL added!');
-    }
-    setTimeout(() => setPhotoMsg(''), 3000);
-  }
-
-  async function removePhoto(url) {
-    if (!photoSite) return;
-    await updateDoc(getCampsiteRef(photoSite), { photos: arrayRemove(url) }).catch(console.error);
-  }
-
-  async function handleFileUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file || !photoSite) return;
-    setUploading(true);
-    setUploadProgress(0);
-    const path = `campsite-photos/${photoSite}/${Date.now()}-${file.name}`;
-    const sRef = storageRef(storage, path);
-    const task = uploadBytesResumable(sRef, file);
-    task.on('state_changed',
-      snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
-      err => { console.error(err); setUploading(false); },
-      async () => {
-        const url = await getDownloadURL(task.snapshot.ref);
-        await addPhotoUrl(url);
-        setUploading(false);
-        setUploadProgress(0);
-        setPhotoMsg('Photo uploaded!');
-      }
-    );
-  }
-
-  // Get current photos for selected site (merge static + Firestore)
-  const selectedSite = campsites.find(s => String(s.id) === String(photoSite));
-  const currentPhotos = selectedSite?.photos || [];
-
-  async function approveSuggestion(suggestion) {
-    // Map suggestion fields to campsite schema and write to live campsites collection
-    const campsite = {
-      name: suggestion.name || 'Unnamed Campsite',
-      region: suggestion.region || '',
-      county: suggestion.county || '',
-      lat: parseFloat(suggestion.lat) || 0,
-      lng: parseFloat(suggestion.lng) || 0,
-      description: suggestion.description || '',
-      access: suggestion.access || 'moderate',
-      facilities: suggestion.facilities || [],
-      fee: suggestion.fee || 'Unknown',
-      sources: suggestion.source ? [suggestion.source] : ['Community'],
-      youtubeLinks: [],
-      tags: [],
-      image: null,
-      approvedAt: serverTimestamp(),
-      approvedBy: user.email,
-      submittedBy: suggestion.submittedBy || 'anonymous',
-    };
-    await addDoc(collection(db, 'campsites'), campsite);
-    await deleteDoc(doc(db, 'suggestions', suggestion.id));
-  }
-
-  async function rejectSuggestion(id) {
-    await deleteDoc(doc(db, 'suggestions', id));
-  }
 
   if (loading || !isAdmin) return null;
 
   const tabs = [
-    { key: 'suggestions', label: 'Suggestions', count: suggestions.length },
-    { key: 'photos', label: 'Photos' },
-    { key: 'stats', label: 'Stats' },
-    { key: 'campsites', label: 'Campsites' },
+    { k: 'queue',     label: 'Moderation', count: suggestions.length },
+    { k: 'photos',    label: 'Photos'      },
+    { k: 'stats',     label: 'Stats'       },
+    { k: 'directory', label: 'Directory'   },
   ];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-yellow-900/40 border border-yellow-700/50 rounded-xl flex items-center justify-center">
-          <Shield size={20} className="text-yellow-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-yellow-200">Admin Panel</h1>
-          <p className="text-xs text-gray-500">Signed in as {user?.email}</p>
+    <div className="admin">
+      <div className="admin__band">
+        <div className="admin__band-inner">
+          <span className="admin__shield"><Icon name="shield" size={20} /></span>
+          <div>
+            <h1 className="admin__title display">Editor console</h1>
+            <div className="coord" style={{ color: 'rgba(236,226,204,.55)', marginTop: 4 }}>
+              Signed in as {user?.email}
+            </div>
+          </div>
+          <div className="admin__band-stat">
+            <div className="admin__band-stat-v font-mono">{suggestions.length}</div>
+            <div className="admin__band-stat-l">pending</div>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[#2d5a2e]">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              tab === t.key
-                ? 'border-yellow-500 text-yellow-300'
-                : 'border-transparent text-gray-500 hover:text-gray-300'
-            }`}>
-            {t.label}
-            {t.count !== undefined && t.count > 0 && (
-              <span className="ml-1.5 bg-yellow-800 text-yellow-200 text-xs px-1.5 py-0.5 rounded-full">{t.count}</span>
-            )}
-          </button>
+      <div className="admin__body">
+        <div className="admin__tabs">
+          {tabs.map(t => (
+            <button key={t.k} className={cx('admin__tab', tab === t.k && 'is-on')} onClick={() => setTab(t.k)}>
+              {t.label}
+              {t.count > 0 && <span className="admin__tab-badge">{t.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'queue'     && <QueueTab suggestions={suggestions} loading={loadingSugg} user={user} />}
+        {tab === 'photos'    && <PhotosTab campsites={campsites} />}
+        {tab === 'stats'     && <StatsTab campsites={campsites} suggestions={suggestions} />}
+        {tab === 'directory' && <DirectoryTab campsites={campsites} />}
+      </div>
+    </div>
+  );
+}
+
+// ---- Moderation queue -----------------------------------------------
+function QueueTab({ suggestions, loading, user }) {
+  const { campsites } = useCampsitesContext();
+  const [acted, setActed] = useState({});
+
+  async function approveSuggestion(s) {
+    setActed(a => ({ ...a, [s.id]: 'approve' }));
+    const campsite = {
+      name: s.name || 'Unnamed', region: s.region || '', county: s.county || '',
+      lat: parseFloat(s.lat) || 0, lng: parseFloat(s.lng) || 0,
+      description: s.description || '', access: s.access || 'moderate',
+      facilities: s.facilities || [], fee: s.fee || 'Unknown',
+      sources: s.source ? [s.source] : ['Community'],
+      youtubeLinks: [], tags: [], photos: [],
+      approvedAt: serverTimestamp(), approvedBy: user?.email,
+    };
+    setTimeout(async () => {
+      await addDoc(collection(db, 'campsites'), campsite);
+      await deleteDoc(doc(db, 'suggestions', s.id));
+    }, 420);
+  }
+
+  async function rejectSuggestion(id) {
+    setActed(a => ({ ...a, [id]: 'reject' }));
+    setTimeout(() => deleteDoc(doc(db, 'suggestions', id)), 420);
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-3)' }}>Loading…</div>;
+
+  if (!suggestions.length) return (
+    <div className="admin__empty card">
+      <TickCorners inset={10} len={14} />
+      <Icon name="checkCircle" size={34} />
+      <div className="display" style={{ fontSize: 21 }}>Queue clear</div>
+      <p className="muted" style={{ margin: 0 }}>No campsites waiting for review.</p>
+    </div>
+  );
+
+  return (
+    <div>
+      <p className="admin__lead">Review rider-submitted campsites. Approving publishes them live; rejecting discards the submission.</p>
+      <div className="admin__queue">
+        {suggestions.map(s => (
+          <article key={s.id} className={cx('subm card', acted[s.id] && `is-${acted[s.id]}`)}>
+            <div className="subm__inner">
+              <div className="subm__head">
+                <div>
+                  <h3 className="subm__name">{s.name || 'Unnamed'}</h3>
+                  <div className="subm__loc">
+                    <Icon name="pin" size={12} /> {s.region && `${s.region}, `}{s.county}
+                    {s.submittedAt && ` · ${new Date(s.submittedAt.seconds * 1000).toLocaleDateString()}`}
+                  </div>
+                </div>
+                {s.access && <AccessChip access={s.access} />}
+              </div>
+              <p className="subm__desc">{s.description}</p>
+              <div className="subm__meta">
+                {s.lat && s.lng && <span className="coord"><Icon name="pin" size={11} /> {s.lat}, {s.lng}</span>}
+                {s.fee && <span className="coord">{s.fee}</span>}
+                {s.facilities?.length > 0 && <span className="coord">{s.facilities.length} facilities</span>}
+                {s.source && <span className="coord">▶ {s.source}</span>}
+                <span className="coord subm__by">{s.submittedBy || s.submittedBy}</span>
+              </div>
+              <div className="subm__actions">
+                <button className="btn btn--signal btn--sm" onClick={() => approveSuggestion(s)}>
+                  <Icon name="check" size={15} /> Approve &amp; publish
+                </button>
+                <button className="btn btn--sm" onClick={() => rejectSuggestion(s.id)}>
+                  <Icon name="x" size={15} /> Reject
+                </button>
+              </div>
+            </div>
+          </article>
         ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Suggestions tab */}
-      {tab === 'suggestions' && (
-        <div>
-          <p className="text-sm text-gray-400 mb-4">
-            Review community-submitted campsites. Approve to save for code addition, or reject to discard.
-          </p>
-          {loadingSugg ? (
-            <div className="text-center py-12 text-gray-500">Loading suggestions…</div>
-          ) : suggestions.length === 0 ? (
-            <div className="text-center py-12 text-gray-600 border border-[#2d5a2e]/30 rounded-xl">
-              <CheckCircle size={32} className="mx-auto mb-2 opacity-30" />
-              <p>No pending suggestions.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {suggestions.map(s => (
-                <div key={s.id} className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-xl p-5">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div>
-                      <h3 className="font-semibold text-green-100">{s.name || 'Unnamed'}</h3>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {s.region && `${s.region}, `}{s.county}
-                        {s.submittedAt && ` · ${new Date(s.submittedAt.seconds * 1000).toLocaleDateString()}`}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => approveSuggestion(s)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-900/50 hover:bg-green-800 border border-green-700 text-green-300 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        <CheckCircle size={13} /> Approve
-                      </button>
-                      <button
-                        onClick={() => rejectSuggestion(s.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        <XCircle size={13} /> Reject
-                      </button>
-                    </div>
-                  </div>
+// ---- Photos tab -----------------------------------------------------
+function PhotosTab({ campsites }) {
+  const [siteId, setSiteId] = useState('');
+  const [url, setUrl]       = useState('');
+  const [msg, setMsg]       = useState('');
+  const [uploading, setUploading]   = useState(false);
+  const [progress, setProgress]     = useState(0);
+  const fileRef = useRef();
+  const site = campsites.find(s => String(s.id) === String(siteId));
 
-                  <p className="text-sm text-gray-400 mb-3 leading-relaxed">{s.description}</p>
+  function getCampsiteRef(id) { return doc(db, 'campsites', String(id)); }
 
-                  <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                    {s.lat && s.lng && (
-                      <span className="flex items-center gap-1">
-                        <MapPin size={11} /> {s.lat}, {s.lng}
-                      </span>
-                    )}
-                    {s.access && (
-                      <span className="capitalize">🛣️ {s.access}</span>
-                    )}
-                    {s.fee && <span>💰 {s.fee}</span>}
-                    {s.source && <span>▶ {s.source}</span>}
-                    {s.facilities?.length > 0 && (
-                      <span>🏕️ {s.facilities.join(', ')}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+  async function addUrl() {
+    if (!url.trim() || !site) return;
+    try {
+      await updateDoc(getCampsiteRef(siteId), { photos: arrayUnion(url.trim()) });
+    } catch {
+      await addDoc(collection(db, 'campsites'), { ...site, photos: [url.trim()] });
+    }
+    setUrl(''); setMsg('Photo URL added!'); setTimeout(() => setMsg(''), 3000);
+  }
 
-      {/* Photos tab */}
-      {tab === 'photos' && (
-        <div className="space-y-5">
-          <p className="text-sm text-gray-400">Manage photos for any campsite. Upload a file or paste a URL. Changes appear live on the map and list immediately.</p>
+  async function removePhoto(p) {
+    await updateDoc(getCampsiteRef(siteId), { photos: arrayRemove(p) }).catch(console.error);
+  }
 
-          {/* Site selector */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Select Campsite</label>
-            <select
-              value={photoSite}
-              onChange={e => { setPhotoSite(e.target.value); setPhotoMsg(''); }}
-              className="w-full sm:w-96 bg-[#1e3320] border border-[#2d5a2e] text-gray-300 rounded-xl px-3 py-2 text-sm"
-            >
-              <option value="">— Choose a campsite —</option>
-              {campsites.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({(s.photos || []).length} photo{(s.photos || []).length !== 1 ? 's' : ''})
-                </option>
-              ))}
-            </select>
-          </div>
+  async function handleUpload(e) {
+    const file = e.target.files?.[0]; if (!file || !site) return;
+    setUploading(true); setProgress(0);
+    const sRef = storageRef(storage, `campsite-photos/${siteId}/${Date.now()}-${file.name}`);
+    const task = uploadBytesResumable(sRef, file);
+    task.on('state_changed',
+      snap => setProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+      err => { console.error(err); setUploading(false); },
+      async () => {
+        const downloadUrl = await getDownloadURL(task.snapshot.ref);
+        try { await updateDoc(getCampsiteRef(siteId), { photos: arrayUnion(downloadUrl) }); }
+        catch { await addDoc(collection(db, 'campsites'), { ...site, photos: [downloadUrl] }); }
+        setUploading(false); setProgress(0); setMsg('Photo uploaded!'); setTimeout(() => setMsg(''), 3000);
+      }
+    );
+  }
 
-          {photoSite && (
-            <div className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-green-200 flex items-center gap-2">
-                <Image size={15} /> {selectedSite?.name}
-              </h3>
+  const currentPhotos = site?.photos || [];
 
-              {/* Add by URL */}
+  return (
+    <div>
+      <p className="admin__lead">Manage photos for any campsite. The first photo is the cover image shown on cards.</p>
+      <div className="photos__select">
+        <label className="field-label">Select campsite</label>
+        <select className="select" value={siteId} onChange={e => { setSiteId(e.target.value); setMsg(''); }} style={{ maxWidth: 420 }}>
+          <option value="">— Choose a campsite —</option>
+          {campsites.map(s => <option key={s.id} value={s.id}>{s.name} ({(s.photos||[]).length} photos)</option>)}
+        </select>
+      </div>
+
+      {site && (
+        <div className="photos__panel card">
+          <div className="photos__panel-inner">
+            <h3 className="photos__h"><Icon name="image" size={16} /> {site.name}</h3>
+            <div className="photos__add">
               <div>
-                <label className="text-xs text-gray-500 mb-1.5 block flex items-center gap-1">
-                  <LinkIcon size={11} /> Paste a photo URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    value={urlInput}
-                    onChange={e => setUrlInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addPhotoUrl(urlInput)}
-                    placeholder="https://..."
-                    className="flex-1 bg-[#1e3320] border border-[#2d5a2e] rounded-xl px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-green-600"
-                  />
-                  <button
-                    onClick={() => addPhotoUrl(urlInput)}
-                    disabled={!urlInput.trim()}
-                    className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white rounded-xl text-sm font-medium transition-colors"
-                  >
-                    Add
-                  </button>
+                <label className="field-label"><Icon name="link" size={11} /> Paste photo URL</label>
+                <div className="row gap-2">
+                  <input className="input" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && addUrl()} placeholder="https://images.unsplash.com/…" />
+                  <button className="btn btn--signal" type="button" onClick={addUrl} disabled={!url.trim()}>Add</button>
                 </div>
               </div>
-
-              {/* Upload file */}
               <div>
-                <label className="text-xs text-gray-500 mb-1.5 block flex items-center gap-1">
-                  <Upload size={11} /> Upload from device
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#1e3320] border border-[#2d5a2e] hover:border-green-600 text-gray-300 rounded-xl text-sm transition-colors disabled:opacity-50"
-                >
-                  <Upload size={14} />
-                  {uploading ? `Uploading… ${uploadProgress}%` : 'Choose image'}
+                <label className="field-label"><Icon name="upload" size={11} /> Or upload</label>
+                <input type="file" accept="image/*" ref={fileRef} onChange={handleUpload} style={{ display: 'none' }} />
+                <button className="btn" type="button" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  <Icon name="upload" size={15} /> {uploading ? `Uploading ${progress}%` : 'Choose image'}
                 </button>
-                {uploading && (
-                  <div className="mt-2 h-1.5 bg-[#1e3320] rounded-full overflow-hidden w-48">
-                    <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                )}
+                {uploading && <div style={{ height: 4, background: 'var(--paper-2)', borderRadius: 100, marginTop: 8, overflow: 'hidden' }}><div style={{ height: '100%', width: `${progress}%`, background: 'var(--terrain)', transition: 'width .2s' }} /></div>}
               </div>
-
-              {photoMsg && (
-                <p className="text-xs text-green-400 flex items-center gap-1">
-                  <CheckCircle size={12} /> {photoMsg}
-                </p>
-              )}
-
-              {/* Current photos grid */}
-              {currentPhotos.length > 0 ? (
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">{currentPhotos.length} photo{currentPhotos.length !== 1 ? 's' : ''}</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {currentPhotos.map((url, i) => (
-                      <div key={i} className="relative group rounded-lg overflow-hidden h-28">
-                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => removePhoto(url)}
-                          className="absolute top-1 right-1 w-6 h-6 bg-red-900/80 hover:bg-red-700 text-white rounded-full items-center justify-center hidden group-hover:flex transition-colors"
-                          title="Remove photo"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                        {i === 0 && (
-                          <span className="absolute bottom-1 left-1 text-xs bg-green-900/80 text-green-300 px-1.5 py-0.5 rounded">Cover</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-600 italic">No photos yet for this campsite.</p>
-              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Stats tab */}
-      {tab === 'stats' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {[
-              { label: 'Registered Users', value: stats.users, icon: Users, color: 'text-blue-400' },
-              { label: 'Total Campsites', value: campsites.length, icon: Tent, color: 'text-green-400' },
-              { label: 'Pending Suggestions', value: suggestions.length, icon: Clock, color: 'text-yellow-400' },
-            ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-xl p-5 text-center">
-                <Icon size={24} className={`mx-auto mb-2 ${color}`} />
-                <div className={`text-3xl font-bold ${color}`}>{value}</div>
-                <div className="text-xs text-gray-500 mt-1">{label}</div>
-              </div>
-            ))}
-          </div>
-          <div className="bg-[#141f14] border border-[#2d5a2e]/60 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-gray-400 mb-3">Campsite Coverage</h3>
-            <div className="space-y-2">
-              {['Nairobi', 'Nakuru', 'Laikipia', 'Narok', 'Samburu', 'Marsabit', 'Kilifi', 'Makueni'].map(county => {
-                const count = campsites.filter(s => s.county === county).length;
-                return count > 0 ? (
-                  <div key={county} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400 w-28">{county}</span>
-                    <div className="flex-1 h-2 bg-[#1e3320] rounded-full overflow-hidden">
-                      <div className="h-full bg-green-700 rounded-full" style={{ width: `${(count / 5) * 100}%` }} />
-                    </div>
-                    <span className="text-xs text-gray-500">{count}</span>
-                  </div>
-                ) : null;
-              })}
+            {msg && <div className="photos__msg coord"><Icon name="check" size={12} /> {msg}</div>}
+            <div className="photos__grid">
+              {currentPhotos.map((p, i) => (
+                <div key={p+i} className="photos__cell">
+                  <img src={p} alt="" loading="lazy" />
+                  <button className="photos__cell-del" onClick={() => removePhoto(p)} title="Remove"><Icon name="trash" size={13} /></button>
+                  {i === 0 && <span className="photos__cell-cover">Cover</span>}
+                </div>
+              ))}
+              {!currentPhotos.length && <div className="photos__none coord">No photos yet.</div>}
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Campsites tab */}
-      {tab === 'campsites' && (
-        <div>
-          <p className="text-sm text-gray-400 mb-4">
-            All {campsites.length} campsites in the database. Edit them by updating <code className="bg-[#1e3320] px-1 rounded text-xs">src/data/campsites.js</code>.
-          </p>
-          <div className="space-y-2">
-            {campsites.map(s => (
-              <div key={s.id} className="flex items-center justify-between bg-[#141f14] border border-[#2d5a2e]/40 rounded-xl px-4 py-3">
-                <div>
-                  <span className="text-sm text-green-100 font-medium">{s.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">{s.region}, {s.county}</span>
+// ---- Stats tab ------------------------------------------------------
+function StatsTab({ campsites, suggestions }) {
+  const totalReports = campsites.reduce((a, s) => a + s.community.count, 0);
+  const avg = campsites.reduce((a, s) => a + s.community.overall, 0) / campsites.length;
+  const counties = [...new Set(campsites.map(s => s.county))].map(c => ({ c, n: campsites.filter(s => s.county === c).length })).sort((a, b) => b.n - a.n);
+  const maxC = Math.max(...counties.map(c => c.n));
+  const access = ['good','moderate','rough'].map(k => ({ k, n: campsites.filter(s => s.access === k).length }));
+  const tokenMap = { good: 'terrain', moderate: 'amber', rough: 'rust' };
+  const labelMap = { good: 'Good Road', moderate: 'Moderate', rough: 'Rough / ADV' };
+
+  return (
+    <div className="stats">
+      <div className="stats__cards">
+        {[
+          { l: 'Campsites live',  v: campsites.length,      icon: 'tent'  },
+          { l: 'Field reports',   v: totalReports,           icon: 'users' },
+          { l: 'Avg score',       v: avg.toFixed(1),         icon: 'star'  },
+          { l: 'Pending review',  v: suggestions.length,     icon: 'clock' },
+        ].map(s => (
+          <div key={s.l} className="stats__card card">
+            <Icon name={s.icon} size={20} className="stats__card-icn" />
+            <div className="stats__card-v font-mono">{s.v}</div>
+            <div className="stats__card-l">{s.l}</div>
+          </div>
+        ))}
+      </div>
+      <div className="stats__cols">
+        <div className="stats__panel card">
+          <div className="stats__panel-inner">
+            <h3 className="stats__h">Coverage by county</h3>
+            <div className="stats__bars">
+              {counties.map(c => (
+                <div key={c.c} className="stats__bar-row">
+                  <span className="stats__bar-l">{c.c}</span>
+                  <div className="stats__bar-track"><div className="stats__bar-fill" style={{ width: `${(c.n/maxC)*100}%` }} /></div>
+                  <span className="coord">{c.n}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    s.access === 'good' ? 'bg-green-900/40 text-green-400' :
-                    s.access === 'moderate' ? 'bg-yellow-900/40 text-yellow-400' :
-                    'bg-red-900/40 text-red-400'
-                  }`}>{s.access}</span>
-                  <span className="text-xs text-gray-600">#{s.id}</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      )}
+        <div className="stats__panel card">
+          <div className="stats__panel-inner">
+            <h3 className="stats__h">Terrain distribution</h3>
+            <div className="stats__access">
+              {access.map(a => (
+                <div key={a.k} className="stats__access-row">
+                  <span className={cx('stats__access-dot', `bg-${tokenMap[a.k]}`)} />
+                  <span className="stats__access-l">{labelMap[a.k]}</span>
+                  <div className="stats__bar-track"><div className={cx('stats__bar-fill', `bg-${tokenMap[a.k]}`)} style={{ width: `${(a.n/campsites.length)*100}%` }} /></div>
+                  <span className="coord">{a.n}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Directory tab --------------------------------------------------
+function DirectoryTab({ campsites }) {
+  const navigate = useNavigate();
+  return (
+    <div>
+      <p className="admin__lead">All {campsites.length} campsites on file. Click any row to open its field report.</p>
+      <div className="dir card">
+        <div className="dir__head">
+          <span>#</span><span>Campsite</span><span>County</span><span>Access</span><span>Reports</span><span>Score</span>
+        </div>
+        {campsites.map(s => (
+          <div key={s.id} className="dir__row" onClick={() => navigate(`/site/${s.id}`)}>
+            <span className="coord">{String(s.id).padStart ? String(s.id).substring(0,4) : s.id}</span>
+            <span className="dir__name">{s.name}</span>
+            <span className="dir__county">{s.county}</span>
+            <span><AccessChip access={s.access} /></span>
+            <span className="coord">{s.community?.count || 0}</span>
+            <span className="dir__score">★ {(Math.round((s.community?.overall||0) * 10) / 10).toFixed(1)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
