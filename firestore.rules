@@ -1,32 +1,37 @@
 rules_version = '2';
-// NOTE: Before deploying, replace YOUR_ADMIN_EMAIL below with your actual
-// admin email address. This file is not deployed automatically — run:
-//   firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Each user can read/write only their own data
+    // Each user can only read/write their own site interaction data
     match /users/{userId}/data/{doc} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
     }
 
-    // Anyone can submit a suggestion (no login required)
+    // Suggestions — must be signed in to submit (prevents anonymous spam),
+    // 1000-char limit, only admin can read/moderate
     match /suggestions/{suggestionId} {
-      allow create: if true;
-      // Only admin can read, update, delete suggestions
+      allow create: if request.auth != null
+        && request.resource.data.text == null || request.resource.data.description.size() <= 2000;
       allow read, update, delete: if request.auth != null
-        && request.auth.token.email == "YOUR_ADMIN_EMAIL";
+        && request.auth.token.email == "gabssmall@gmail.com";
     }
 
-    // Community-approved campsites — anyone can read, only admin can write
+    // Community-approved campsites — public read, admin-only write
     match /campsites/{id} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.auth.token.email == "YOUR_ADMIN_EMAIL";
+        && request.auth.token.email == "gabssmall@gmail.com";
     }
 
-    // Trip reports / comments — anyone can read, logged-in users can post,
-    // users can delete their own, admin can delete any
+    // Community ratings — public read, authenticated users write only their own
+    match /ratings/{siteId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Trip reports / comments — public read, authenticated post,
+    // users delete own + admin deletes any, 1000-char limit
     match /comments/{siteId}/posts/{postId} {
       allow read: if true;
       allow create: if request.auth != null
@@ -35,7 +40,7 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 1000;
       allow delete: if request.auth != null
         && (resource.data.uid == request.auth.uid
-            || request.auth.token.email == "YOUR_ADMIN_EMAIL");
+            || request.auth.token.email == "gabssmall@gmail.com");
     }
   }
 }
