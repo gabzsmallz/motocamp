@@ -309,26 +309,62 @@ function StatsTab({ campsites, suggestions }) {
 }
 
 // ---- Directory tab --------------------------------------------------
+const DIR_PAGE_SIZE = 25;
+
 function DirectoryTab({ campsites }) {
   const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [page, setPage]   = useState(1);
+
+  const filtered = campsites.filter(s => {
+    const q = query.trim().toLowerCase();
+    return !q || s.name?.toLowerCase().includes(q) || s.county?.toLowerCase().includes(q);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / DIR_PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * DIR_PAGE_SIZE, page * DIR_PAGE_SIZE);
+
+  function handleQuery(e) { setQuery(e.target.value); setPage(1); }
+
   return (
     <div>
       <p className="admin__lead">All {campsites.length} campsites on file. Click any row to open its field report.</p>
+      <div className="dir__toolbar">
+        <input
+          className="input dir__search"
+          placeholder="Search by name or county…"
+          value={query}
+          onChange={handleQuery}
+        />
+        {query.trim() && (
+          <span className="coord dir__match">{filtered.length} match{filtered.length !== 1 ? 'es' : ''}</span>
+        )}
+      </div>
       <div className="dir card">
         <div className="dir__head">
           <span>#</span><span>Campsite</span><span>County</span><span>Access</span><span>Reports</span><span>Score</span>
         </div>
-        {campsites.map(s => (
+        {paged.map(s => (
           <div key={s.id} className="dir__row" onClick={() => navigate(`/site/${s.id}`)}>
-            <span className="coord">{String(s.id).padStart ? String(s.id).substring(0,4) : s.id}</span>
+            <span className="coord">{String(s.id).substring(0, 4)}</span>
             <span className="dir__name">{s.name}</span>
             <span className="dir__county">{s.county}</span>
             <span><AccessChip access={s.access} /></span>
             <span className="coord">{s.community?.count || 0}</span>
-            <span className="dir__score">★ {(Math.round((s.community?.overall||0) * 10) / 10).toFixed(1)}</span>
+            <span className="dir__score">★ {(Math.round((s.community?.overall || 0) * 10) / 10).toFixed(1)}</span>
           </div>
         ))}
+        {!paged.length && (
+          <div className="dir__empty coord">No campsites match your search.</div>
+        )}
       </div>
+      {totalPages > 1 && (
+        <div className="dir__pagination">
+          <button className="btn btn--sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
+          <span className="coord">Page {page} of {totalPages}</span>
+          <button className="btn btn--sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
+        </div>
+      )}
     </div>
   );
 }
